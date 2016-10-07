@@ -1,5 +1,6 @@
 "use strict";
 
+var R     = require("ramda");
 var async = require("async");
 var squel = require("squel");
 var pg    = require("pg");
@@ -18,8 +19,8 @@ pg.on("end", function onPgEnd() {
  */
 function LivePg(conn, poolSize) {
   this.conn     = conn;
-  this.docTable = "doc.documents";
-  this.opTable  = "doc.operations";
+  this.docTable = "data.documents";
+  this.opTable  = "data.operations";
 
   pg.defaults.poolSize = poolSize || 10;
 }
@@ -47,22 +48,30 @@ function LivePg(conn, poolSize) {
 LivePg.prototype.getSnapshot = function getSnapshot (cName, docName, cb) {
 
   var self = this;
-  var qry = squel.select({ numberedParameters: true })
-    .from(this.docTable)
-    .field("data")
-    .where("collection = ?", cName)
-    .where("name = ?", docName)
-    .limit(1);
+  var input = {
+    "head": {
+      "resource": "board_document",
+      "sender":   "be-api",
+      "team_id":  cName,
+      "board_id": docName,
+    },
+  };
 
   var execute = function (callback) {
-    self._query(qry.toParam(), callback);
+    self._query({
+      name:   "get_doc",
+      text:   "SELECT api3.select($1::jsonb) as doc",
+      values: [input]
+    }, callback);
   };
 
   var result = function (dbResult, callback) {
-    var row = null;
-    if (dbResult.rows.length) {
-      row = dbResult.rows.pop().data;
-    }
+    const row = R.compose(
+      R.pathOr(null, ["doc", "data", "document", "data"]),
+      R.head(),
+      R.pathOr([], ["rows"])
+    )(dbResult);
+
     callback(null, row);
   };
 
@@ -91,17 +100,33 @@ LivePg.prototype.getSnapshot = function getSnapshot (cName, docName, cb) {
  */
 LivePg.prototype.writeSnapshot = function writeSnapshot (cName, docName, data, cb) {
   var self = this;
+  var input = {
+    "head": {
+      "resource": "board_document",
+      "sender":   "be-api",
+      "team_id":  cName,
+      "board_id": docName,
+    },
+    "data": {
+      data: data
+    },
+  };
 
   var execute = function (callback) {
     self._query({
       name: "write_snapshot",
-      text: "SELECT doc.write_snapshot($1::text, $2::text, $3::jsonb)",
-      values: [cName, docName, data]
+      text: "SELECT api3.update($1::jsonb) as doc",
+      values: [input]
     }, callback);
   };
 
   var result = function (dbResult, callback) {
-    var row = dbResult.rows.pop().write_snapshot.data;
+    const row = R.compose(
+      R.pathOr(null, ["doc", "data", "document", "data"]),
+      R.head(),
+      R.pathOr([], ["rows"])
+    )(dbResult);
+
     callback(null, row);
   };
 
@@ -187,17 +212,34 @@ LivePg.prototype.bulkGetSnapshot = function bulkGetSnapshot (requests, cb) {
  */
 LivePg.prototype.writeOp = function writeOp (cName, docName, opData, cb) {
   var self = this;
+  var input = {
+    "head": {
+      "resource": "board_operation",
+      "sender":   "be-api",
+      "team_id":  cName,
+      "board_id": docName
+    },
+    "data": {
+      "version": opData.v,
+      "data":    opData,
+    }
+  };
 
   var execute = function (callback) {
     self._query({
-      name: "write_op",
-      text: "SELECT doc.write_op($1::text, $2::text, $3::bigint, $4::jsonb)",
-      values: [cName, docName, opData.v, opData]
+      name:   "write_op",
+      text:   "SELECT api3.update($1::jsonb) as op",
+      values: [input],
     }, callback);
   };
 
   var result = function (dbResult, callback) {
-    var row = dbResult.rows.pop().write_op.data;
+    const row = R.compose(
+      R.pathOr(null, ["op", "data", "operation", "data"]),
+      R.head(),
+      R.pathOr([], ["rows"])
+    )(dbResult);
+
     callback(null, row);
   };
 

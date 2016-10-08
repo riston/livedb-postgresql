@@ -1,6 +1,7 @@
 "use strict";
 
 var R     = require("ramda");
+var debug = require("debug")("pglive");
 var async = require("async");
 var squel = require("squel");
 var pg    = require("pg");
@@ -57,6 +58,8 @@ LivePg.prototype.getSnapshot = function getSnapshot (cName, docName, cb) {
     },
   };
 
+  debug("get-snapshot input", input);
+
   var execute = function (callback) {
     self._query({
       name:   "get_doc",
@@ -71,6 +74,8 @@ LivePg.prototype.getSnapshot = function getSnapshot (cName, docName, cb) {
       R.head(),
       R.pathOr([], ["rows"])
     )(dbResult);
+
+    debug("get-snapshot row ", row);
 
     callback(null, row);
   };
@@ -112,6 +117,8 @@ LivePg.prototype.writeSnapshot = function writeSnapshot (cName, docName, data, c
     },
   };
 
+  debug("write-snapshot input", input);
+
   var execute = function (callback) {
     self._query({
       name: "write_snapshot",
@@ -126,6 +133,8 @@ LivePg.prototype.writeSnapshot = function writeSnapshot (cName, docName, data, c
       R.head(),
       R.pathOr([], ["rows"])
     )(dbResult);
+
+    debug("write-snapshot row", row);
 
     callback(null, row);
   };
@@ -166,7 +175,10 @@ LivePg.prototype.bulkGetSnapshot = function bulkGetSnapshot (requests, cb) {
   expr.end();
 
   var execute = function (callback) {
-    self._query(qry.where(expr).toParam(), callback);
+    var sql = qry.where(expr).toParam();
+    debug("bulk-get-snapshot input", row);
+
+    self._query(sql, callback);
   };
 
   var result = function (dbResult, callback) {
@@ -182,6 +194,8 @@ LivePg.prototype.bulkGetSnapshot = function bulkGetSnapshot (requests, cb) {
     for (var i = 0, len = collections.length; i < len; i++) {
       if (!results[collections[i]]) results[collections[i]] = {};
     }
+
+    debug("bulk-get-snapshot results", results);
 
     callback(null, results);
   };
@@ -225,6 +239,8 @@ LivePg.prototype.writeOp = function writeOp (cName, docName, opData, cb) {
     }
   };
 
+  debug("write-op input", input);
+
   var execute = function (callback) {
     self._query({
       name:   "write_op",
@@ -240,6 +256,7 @@ LivePg.prototype.writeOp = function writeOp (cName, docName, opData, cb) {
       R.pathOr([], ["rows"])
     )(dbResult);
 
+    debug("write-op row", row);
     callback(null, row);
   };
 
@@ -273,7 +290,9 @@ LivePg.prototype.getVersion = function getVersion (cName, docName, cb) {
     .limit(1);
 
   var execute = function (callback) {
-    self._query(qry.toParam(), callback);
+    var sql = qry.toParam();
+    debug("getVersion sql", row);
+    self._query(sql, callback);
   };
 
   var result = function (dbResult, callback) {
@@ -281,6 +300,7 @@ LivePg.prototype.getVersion = function getVersion (cName, docName, cb) {
     if (dbResult.rows.length) {
       version = parseInt(dbResult.rows.pop().version, 10) + 1;
     }
+    debug("getVersion row", version);
     callback(null, version);
   };
 
@@ -319,8 +339,10 @@ LivePg.prototype.getOps = function getOps (cName, docName, start, end, cb) {
     if ("number" === typeof end) {
       qry.where("version < ?", end);
     }
+    var sql = qry.toParam();
 
-    self._query(qry.toParam(), callback);
+    debug("getOps sql", sql);
+    self._query(sql, callback);
   };
 
   var result = function (dbResult, callback) {
@@ -328,6 +350,7 @@ LivePg.prototype.getOps = function getOps (cName, docName, start, end, cb) {
       return row.data;
     });
 
+    debug("getOps rows", rows);
     callback(null, rows);
   };
 

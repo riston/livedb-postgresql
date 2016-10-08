@@ -176,7 +176,7 @@ LivePg.prototype.bulkGetSnapshot = function bulkGetSnapshot (requests, cb) {
 
   var execute = function (callback) {
     var sql = qry.where(expr).toParam();
-    debug("bulk-get-snapshot input", row);
+    debug("bulk-get-snapshot input", sql);
 
     self._query(sql, callback);
   };
@@ -291,7 +291,7 @@ LivePg.prototype.getVersion = function getVersion (cName, docName, cb) {
 
   var execute = function (callback) {
     var sql = qry.toParam();
-    debug("getVersion sql", row);
+    debug("getVersion sql", sql);
     self._query(sql, callback);
   };
 

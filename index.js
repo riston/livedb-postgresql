@@ -113,7 +113,7 @@ LivePg.prototype.writeSnapshot = function writeSnapshot (cName, docName, data, c
       "board_id": docName,
     },
     "data": {
-      data: data
+      data: self._transform(data),
     },
   };
 
@@ -235,7 +235,7 @@ LivePg.prototype.writeOp = function writeOp (cName, docName, opData, cb) {
     },
     "data": {
       "version": opData.v,
-      "data":    opData,
+      "data":    self._transform(opData),
     }
   };
 
@@ -380,6 +380,10 @@ LivePg.prototype._query = function (query, cb) {
   };
 
   async.waterfall([ connect, executeQuery ], cb);
+};
+
+LivePg.prototype._transform = function (input) {
+  return JSON.parse(JSON.stringify(input).replace(/\\u0000/g, ""));
 };
 
 /**

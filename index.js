@@ -6,6 +6,35 @@ var async = require("async");
 var squel = require("squel");
 var pg    = require("pg");
 
+/**
+ * Remove the null byte from string.
+ *
+ * PostgreSQL is throwing error when you try to save null byte to JSONB or TEXT
+ * data type, before save make sure you remove it.
+ *
+ * Following approach is faster than doing JSON.parse(JSON.stringify(x).replace).
+ * Code from https://github.com/sequelize/sequelize/issues/6485.
+ *
+ * @param  {Object|String|Array} value
+ * @return {Any}
+ */
+function stripNullByte(value) {
+    if ("string" === typeof value) {
+        value = value.replace(/\u0000/g, "");
+    }
+    if ("object" === typeof value && null !== value) {
+        Object.keys(value).forEach(function (key) {
+            value[key] = stripNullByte(value[key]);
+        });
+    }
+    if ("array" === typeof value) {
+        value.forEach(function (element, index, array) {
+            array[index] = stripNullByte(element);
+        });
+    }
+    return value;
+}
+
 pg.on("end", function onPgEnd() {
   LivePg.willClose = true;
 });
@@ -383,7 +412,7 @@ LivePg.prototype._query = function (query, cb) {
 };
 
 LivePg.prototype._transform = function (input) {
-  return JSON.parse(JSON.stringify(input).replace(/\\u0000/g, ""));
+  return stripNullByte(input);
 };
 
 /**
